@@ -1,0 +1,731 @@
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Average calculator</title>
+  <meta name="description" content="Average calculator with discreet old-school music player (1.mp3, 2.mp3, 3.mp3). All-in-one index.html" />
+  <style>
+    /* ============================
+       Old-school monochrome (black & white) styling
+       Strictly black & white only (no colors).
+       ============================ */
+    :root{
+      --bg:#ffffff;
+      --fg:#000000;
+      --muted:rgba(0,0,0,0.65);
+      --tiny:10px;
+      --mono: "Courier New", Courier, monospace;
+    }
+    html,body{
+      height:100%;
+      margin:0;
+      background:var(--bg);
+      color:var(--fg);
+      font-family: var(--mono);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      letter-spacing:0.02em;
+    }
+
+    /* Simple page wrapper */
+    .wrap{
+      min-height:100%;
+      display:flex;
+      flex-direction:column;
+      justify-content:flex-start;
+      align-items:center;
+      padding:24px;
+    }
+
+    h1{
+      margin:0 0 18px 0;
+      font-size:28px;
+      text-transform:uppercase;
+      letter-spacing:0.12em;
+    }
+
+    .card{
+      width:100%;
+      max-width:900px;
+      border:2px solid var(--fg);
+      padding:18px;
+      box-sizing:border-box;
+      background:var(--bg);
+      box-shadow: none;
+    }
+
+    label{
+      display:block;
+      margin-bottom:6px;
+      font-size:13px;
+    }
+
+    /* Input area big and old-school */
+    textarea,input[type="text"]{
+      background:var(--bg);
+      color:var(--fg);
+      border:2px solid var(--fg);
+      padding:12px;
+      font-family:var(--mono);
+      font-size:15px;
+      width:100%;
+      box-sizing:border-box;
+      resize:vertical;
+      min-height:80px;
+    }
+
+    .controls{
+      display:flex;
+      gap:12px;
+      margin-top:12px;
+      flex-wrap:wrap;
+    }
+
+    button{
+      background:var(--bg);
+      color:var(--fg);
+      border:2px solid var(--fg);
+      padding:8px 12px;
+      cursor:pointer;
+      font-family:var(--mono);
+      font-size:13px;
+      text-transform:uppercase;
+    }
+    button:active{ transform:translateY(1px); }
+
+    .results{
+      margin-top:18px;
+      border-top:1px dashed var(--fg);
+      padding-top:12px;
+      font-size:14px;
+    }
+
+    .result-row{
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      padding:6px 0;
+    }
+    .muted{ color:var(--muted); font-size:12px; }
+
+    /* Footer music player - discreet */
+    footer.music{
+      margin-top:24px;
+      width:100%;
+      max-width:900px;
+      box-sizing:border-box;
+      padding:8px 12px;
+      border-top:1px solid var(--fg);
+      opacity:0.32;               /* make it discreet */
+      font-size:12px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      background:transparent;
+    }
+
+    /* Make the player visually tiny and old-school */
+    .player{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-height:28px;
+    }
+    .player button{
+      padding:6px 8px;
+      font-size:12px;
+    }
+    .small{
+      font-size:11px;
+      padding:6px 8px;
+    }
+
+    .progress{
+      width:180px;
+      height:6px;
+      background:var(--bg);
+      border:1px solid var(--fg);
+      box-sizing:border-box;
+      position:relative;
+    }
+    .progress > .bar{
+      height:100%;
+      background:var(--fg);
+      width:0%;
+    }
+
+    .volume{
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    .footer-right{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    /* responsive tweaks */
+    @media (max-width:560px){
+      .progress{ width:120px; }
+      h1{ font-size:20px; }
+      .card{ padding:12px; }
+    }
+
+    /* intentionally verbose comments to make file "long" per user's request */
+    /* end of stylesheet */
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="main" aria-labelledby="title">
+      <h1 id="title">Average calculator</h1>
+
+      <p class="muted">Enter numeric values separated by commas (for example: <code>1, 2.5, -3, 4e2</code>). The average is calculated automatically and also when you click "Calculate". Robust error handling included.</p>
+
+      <form id="calcForm" onsubmit="return false;" aria-describedby="instructions">
+        <label for="numbers">Numbers (comma separated):</label>
+        <textarea id="numbers" placeholder="e.g. 10, 20, 30" aria-label="Numbers input"></textarea>
+
+        <div class="controls" aria-hidden="false">
+          <button id="calculateBtn" type="button">Calculate</button>
+          <button id="clearBtn" type="button">Clear</button>
+          <button id="pasteExample" type="button">Example Data</button>
+          <label class="muted" style="align-self:center; margin-left:8px;">Auto-calc:
+            <input id="autocalc" type="checkbox" checked aria-label="Toggle auto calculate" style="margin-left:6px; transform:scale(1.1)"/>
+          </label>
+        </div>
+
+        <div class="results" id="results" aria-live="polite" aria-atomic="true">
+          <div id="error" style="color:var(--fg);"></div>
+          <div id="stats" style="display:none;">
+            <div class="result-row"><div>Count</div><div id="count">—</div></div>
+            <div class="result-row"><div>Sum</div><div id="sum">—</div></div>
+            <div class="result-row"><div>Average (mean)</div><div id="avg">—</div></div>
+            <div class="result-row"><div>Median</div><div id="median">—</div></div>
+            <div class="result-row"><div>Mode</div><div id="mode">—</div></div>
+            <div class="result-row"><div>Std. deviation (population)</div><div id="std">—</div></div>
+          </div>
+        </div>
+      </form>
+
+      <div style="margin-top:12px;" class="muted">
+        <strong>Notes:</strong> Non-numeric tokens are ignored but reported. Scientific notation (e.g. <code>1e3</code>) is supported. If there are zero valid numbers you'll be prompted to supply valid input.
+      </div>
+
+      <!-- Hidden accessibility-only element for screen readers -->
+      <div aria-hidden="true" style="height:0; width:0; overflow:hidden;"></div>
+    </div>
+
+    <!-- Discreet footer music player -->
+    <footer class="music" role="contentinfo" aria-label="discreet music player">
+      <div class="player" id="player">
+        <button id="prevBtn" class="small" title="Previous">◄◄</button>
+        <button id="playBtn" class="small" title="Play / Pause">►</button>
+        <button id="nextBtn" class="small" title="Next">►►</button>
+
+        <div class="progress" aria-hidden="true" title="progress">
+          <div class="bar" id="progressBar"></div>
+        </div>
+
+        <div class="volume" title="volume control">
+          <label class="muted">Vol</label>
+          <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="0.6" aria-label="Volume slider" />
+        </div>
+
+        <button id="repeatBtn" class="small" title="Repeat mode">Repeat: Off</button>
+      </div>
+
+      <div class="footer-right muted" style="font-size:11px;">
+        <div id="trackInfo">1.mp3</div>
+        <div style="margin-left:6px;">&middot; Mono</div> <!-- intentionally old-school label -->
+      </div>
+    </footer>
+  </div>
+
+  <!-- Audio elements (only these files are referenced) -->
+  <!-- The files must exist at the same folder as index.html: 1.mp3, 2.mp3, 3.mp3 -->
+  <audio id="audio" preload="metadata" tabindex="-1" style="display:none;">
+    <source src="1.mp3" type="audio/mpeg">
+    <source src="2.mp3" type="audio/mpeg">
+    <source src="3.mp3" type="audio/mpeg">
+    <!-- Note: We won't rely on <audio>'s built-in playlist; we'll manage playlist via JS for more control -->
+  </audio>
+
+  <script>
+    /*
+      Verbose, robust JavaScript to implement:
+      - Parsing of input (comma separated)
+      - Auto-calc with debounce
+      - Manual calc via button
+      - Robust error handling and reporting
+      - Extra stats: sum, median, mode, std deviation
+      - Music player for files: 1.mp3, 2.mp3, 3.mp3
+        * play/pause
+        * prev/next
+        * volume control
+        * repeat modes: off / all / one
+        * discreet appearance (handled via CSS)
+    */
+
+    (function(){
+      'use strict';
+
+      /* ------------------------------
+         Utilities
+         ------------------------------ */
+
+      function $(sel){ return document.querySelector(sel); }
+      function $id(id){ return document.getElementById(id); }
+
+      function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+      function safeParseNumber(token){
+        // Trim whitespace and ignore thousands separators like spaces.
+        // Accept standard decimal and scientific notation (1e3).
+        // Return { ok: boolean, value: number, original: string }
+        var t = String(token).trim();
+        if(t === '') return { ok:false, value:null, original:token };
+        // Remove stray spaces and thousands separators like commas inside numbers.
+        // But user may use commas as separators — we've already split on commas.
+        // Handle fractional slash notation? (not required) - ignore.
+        // Attempt parseFloat after normalizing.
+        // Reject tokens that contain letters (except e/E for exponent).
+        // Accept leading + or -.
+        var normalized = t.replace(/,|\\s+/g,''); // remove anything like thousands separators
+        // quick regex to ensure it's a valid number-like string (digits, dot, exponent)
+        var numLike = /^[+-]?((\\d+\\.?\\d*)|(\\.\\d+))(e[+-]?\\d+)?$/i;
+        if(!numLike.test(normalized)) {
+          return { ok:false, value:null, original:token };
+        }
+        var v = Number(normalized);
+        if(!isFinite(v)) return { ok:false, value:null, original:token };
+        return { ok:true, value:v, original:token };
+      }
+
+      function computeStatistics(arr){
+        // arr must be array of numbers (length >= 1)
+        if(!Array.isArray(arr) || arr.length === 0) throw new Error('computeStatistics: requires non-empty array');
+        var n = arr.length;
+        var sum = 0;
+        for(var i=0;i<n;i++){ sum += arr[i]; }
+        var mean = sum / n;
+        // median
+        var sorted = arr.slice().sort(function(a,b){ return a-b; });
+        var median;
+        if(n%2===1) median = sorted[(n-1)/2];
+        else median = (sorted[n/2 -1] + sorted[n/2]) / 2;
+        // mode (may be multiple, return array)
+        var freq = Object.create(null);
+        var maxf = 0;
+        for(var i=0;i<n;i++){
+          var k = String(arr[i]);
+          freq[k] = (freq[k]||0) + 1;
+          if(freq[k] > maxf) maxf = freq[k];
+        }
+        var modes = [];
+        for(var k in freq){
+          if(freq[k] === maxf) modes.push(Number(k));
+        }
+        // standard deviation (population)
+        var variance = 0;
+        for(var i=0;i<n;i++){
+          var d = arr[i] - mean;
+          variance += d*d;
+        }
+        variance = variance / n;
+        var std = Math.sqrt(variance);
+        return {
+          count: n,
+          sum: sum,
+          mean: mean,
+          median: median,
+          modes: modes,
+          std: std,
+          sorted: sorted
+        };
+      }
+
+      /* ------------------------------
+         DOM Elements
+         ------------------------------ */
+      var numbersEl = $id('numbers');
+      var calculateBtn = $id('calculateBtn');
+      var clearBtn = $id('clearBtn');
+      var pasteExampleBtn = $id('pasteExample');
+      var autoCalcCheckbox = $id('autocalc');
+
+      var errorEl = $id('error');
+      var statsEl = $id('stats');
+      var countEl = $id('count');
+      var sumEl = $id('sum');
+      var avgEl = $id('avg');
+      var medianEl = $id('median');
+      var modeEl = $id('mode');
+      var stdEl = $id('std');
+
+      /* ------------------------------
+         Calculation logic + UI updates
+         ------------------------------ */
+
+      // Debounce for auto-calc
+      var debounceTimer = null;
+      function debounce(fn, delay){
+        return function(){
+          var args = arguments;
+          if(debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(function(){
+            debounceTimer = null;
+            try{ fn.apply(null, args); } catch(e){ console.error(e); }
+          }, delay);
+        };
+      }
+
+      function parseInput(text){
+        // Accept commas, semicolons, whitespace as separators.
+        // The user specifically asked for comma-separated, but be lenient.
+        // Return { validNumbers:[], invalidTokens:[] }
+        if(typeof text !== 'string') text = String(text || '');
+        // First, replace newline with comma to treat as separators as well.
+        var normalized = text.replace(/[\\n\\r]+/g, ',');
+        // Split on commas primarily, but also allow semicolons and whitespace sequences
+        var tokens = normalized.split(/[ ,;]+/);
+        var valid = [];
+        var invalid = [];
+        for(var i=0;i<tokens.length;i++){
+          var t = tokens[i];
+          if(t === '') continue;
+          var r = safeParseNumber(t);
+          if(r.ok) valid.push(r.value);
+          else invalid.push(r.original);
+        }
+        return { validNumbers: valid, invalidTokens: invalid };
+      }
+
+      function formatNumber(n){
+        // Keep it sensible: if integer show integer, else round to 6 decimal places max and trim trailing zeros
+        if(!isFinite(n)) return String(n);
+        if(Math.abs(n) < 1e-12) n = 0; // avoid -0 weirdness
+        if(Number.isInteger(n)) return String(n);
+        // toFixed may produce trailing zeros; trim them
+        var s = n.toFixed(6);
+        s = s.replace(/(?:\\.0+|0+)$/,'');
+        return s;
+      }
+
+      function showError(msg){
+        errorEl.textContent = msg;
+      }
+      function clearError(){
+        errorEl.textContent = '';
+      }
+
+      function updateStatsDisplay(statsObj){
+        if(!statsObj || !statsObj.count){
+          statsEl.style.display = 'none';
+          return;
+        }
+        statsEl.style.display = 'block';
+        countEl.textContent = String(statsObj.count);
+        sumEl.textContent = formatNumber(statsObj.sum);
+        avgEl.textContent = formatNumber(statsObj.mean);
+        medianEl.textContent = formatNumber(statsObj.median);
+        // mode: join multiple
+        if(statsObj.modes && statsObj.modes.length>0){
+          modeEl.textContent = statsObj.modes.map(formatNumber).join(', ');
+        } else {
+          modeEl.textContent = '—';
+        }
+        stdEl.textContent = formatNumber(statsObj.std);
+      }
+
+      function calculateAndRender(){
+        try{
+          clearError();
+          var text = numbersEl.value || '';
+          var parsed = parseInput(text);
+          if(parsed.validNumbers.length === 0){
+            if(parsed.invalidTokens.length > 0){
+              showError('No valid numbers found. Invalid tokens: ' + parsed.invalidTokens.join(', '));
+            } else {
+              showError('Please enter at least one number.');
+            }
+            updateStatsDisplay(null);
+            return;
+          }
+          // compute statistics
+          var stats = computeStatistics(parsed.validNumbers);
+          updateStatsDisplay(stats);
+
+          // if there were invalid tokens, report them in muted style under error element
+          if(parsed.invalidTokens.length > 0){
+            showError('Note: some tokens were ignored: ' + parsed.invalidTokens.join(', '));
+          } else {
+            clearError();
+          }
+        } catch(err){
+          console.error(err);
+          showError('An unexpected error occurred during calculation: ' + (err && err.message ? err.message : String(err)));
+        }
+      }
+
+      // attach events
+      calculateBtn.addEventListener('click', function(){
+        calculateAndRender();
+      });
+
+      clearBtn.addEventListener('click', function(){
+        numbersEl.value = '';
+        updateStatsDisplay(null);
+        clearError();
+      });
+
+      pasteExampleBtn.addEventListener('click', function(){
+        numbersEl.value = '10, 20, 30, 40, 50';
+        if(autoCalcCheckbox.checked) calculateAndRender();
+      });
+
+      // Auto-calc on input with debounce (user requested automatic)
+      numbersEl.addEventListener('input', debounce(function(){
+        if(autoCalcCheckbox.checked){
+          calculateAndRender();
+        }
+      }, 500));
+
+      // Run an initial silent calculation if content exists on load
+      if(numbersEl.value && autoCalcCheckbox.checked) {
+        // wrap in try to be safe
+        try{ calculateAndRender(); } catch(e){ /* swallow */ }
+      }
+
+      /* ------------------------------
+         Music player implementation
+         Using only the files 1.mp3, 2.mp3, 3.mp3 as requested.
+         We manage a simple playlist and provide controls: play, pause, prev, next, volume, repeat.
+         Repeat modes: 0 = off, 1 = repeat all, 2 = repeat one
+         ------------------------------ */
+
+      var audio = $id('audio'); // hidden audio element
+      // Create explicit playlist referencing files in order (we won't rely on audio children order)
+      var playlist = [
+        { src: '1.mp3', title: '1.mp3' },
+        { src: '2.mp3', title: '2.mp3' },
+        { src: '3.mp3', title: '3.mp3' }
+      ];
+      var currentIndex = 0;
+      var isPlaying = false;
+      var repeatMode = 0; // 0: off, 1: all, 2: one
+
+      var playBtn = $id('playBtn');
+      var prevBtn = $id('prevBtn');
+      var nextBtn = $id('nextBtn');
+      var volumeSlider = $id('volumeSlider');
+      var repeatBtn = $id('repeatBtn');
+      var progressBar = $id('progressBar');
+      var trackInfo = $id('trackInfo');
+
+      // Initialize audio
+      function setSourceToIndex(idx){
+        idx = clamp(idx, 0, playlist.length-1);
+        currentIndex = idx;
+        // remove any existing sources and set new src
+        audio.pause();
+        audio.src = playlist[idx].src;
+        audio.load();
+        trackInfo.textContent = playlist[idx].title;
+      }
+
+      // Play current track
+      function playCurrent(){
+        // attempt to play - handle promise for autoplay restrictions
+        var p = audio.play();
+        if(p && p.then){
+          p.then(function(){
+            // playing
+            isPlaying = true;
+            updatePlayButton();
+          }).catch(function(err){
+            // play failed (autoplay restrictions). Just set isPlaying false
+            console.warn('Playback failed or blocked', err);
+            isPlaying = false;
+            updatePlayButton();
+          });
+        } else {
+          isPlaying = true;
+          updatePlayButton();
+        }
+      }
+
+      function pauseCurrent(){
+        try{
+          audio.pause();
+        } catch(e){ /* ignore */ }
+        isPlaying = false;
+        updatePlayButton();
+      }
+
+      function updatePlayButton(){
+        playBtn.textContent = isPlaying ? '❚❚' : '►';
+        playBtn.title = isPlaying ? 'Pause' : 'Play';
+      }
+
+      // Prev / Next behaviour
+      function prevTrack(){
+        if(audio.currentTime > 2){
+          // rewind if more than 2s into the track (old-school behaviour)
+          audio.currentTime = 0;
+          return;
+        }
+        var nextIdx = (currentIndex - 1 + playlist.length) % playlist.length;
+        setSourceToIndex(nextIdx);
+        if(isPlaying) playCurrent();
+      }
+
+      function nextTrack(){
+        var nextIdx = currentIndex + 1;
+        if(nextIdx >= playlist.length){
+          if(repeatMode === 1){
+            nextIdx = 0; // loop to start
+          } else {
+            // stop at end if repeat off
+            pauseCurrent();
+            audio.currentTime = 0;
+            return;
+          }
+        }
+        setSourceToIndex(nextIdx);
+        if(isPlaying) playCurrent();
+      }
+
+      // Repeat toggle cycle
+      function cycleRepeat(){
+        repeatMode = (repeatMode + 1) % 3;
+        var label = 'Repeat: Off';
+        if(repeatMode === 1) label = 'Repeat: All';
+        if(repeatMode === 2) label = 'Repeat: One';
+        repeatBtn.textContent = label;
+        repeatBtn.title = label;
+      }
+
+      // Update progress
+      function updateProgress(){
+        try{
+          if(!isFinite(audio.duration) || audio.duration <= 0){
+            progressBar.style.width = '0%';
+            return;
+          }
+          var pct = (audio.currentTime / audio.duration) * 100;
+          pct = clamp(pct, 0, 100);
+          progressBar.style.width = pct + '%';
+        } catch(e){
+          progressBar.style.width = '0%';
+        }
+      }
+
+      // Wire up events
+      playBtn.addEventListener('click', function(){
+        if(isPlaying){
+          pauseCurrent();
+        } else {
+          // If audio src not set, set it first
+          if(!audio.src) setSourceToIndex(currentIndex);
+          playCurrent();
+        }
+      });
+
+      prevBtn.addEventListener('click', function(){ prevTrack(); });
+      nextBtn.addEventListener('click', function(){ nextTrack(); });
+      repeatBtn.addEventListener('click', function(){ cycleRepeat(); });
+
+      // volume control
+      function setVolume(v){
+        v = Number(v);
+        if(isNaN(v)) v = 0.6;
+        v = clamp(v, 0, 1);
+        try{ audio.volume = v; } catch(e){ /* ignore */ }
+      }
+      // initialize from slider
+      setVolume(volumeSlider.value);
+
+      volumeSlider.addEventListener('input', function(e){
+        setVolume(e.target.value);
+      });
+
+      // audio events
+      audio.addEventListener('timeupdate', function(){ updateProgress(); });
+      audio.addEventListener('ended', function(){
+        // handle repeat modes
+        if(repeatMode === 2){
+          // repeat one
+          audio.currentTime = 0;
+          playCurrent();
+          return;
+        }
+        // otherwise next track or stop
+        if(currentIndex < playlist.length - 1){
+          setSourceToIndex(currentIndex + 1);
+          playCurrent();
+        } else {
+          if(repeatMode === 1){
+            // repeat all
+            setSourceToIndex(0);
+            playCurrent();
+          } else {
+            // stop
+            isPlaying = false;
+            updatePlayButton();
+            audio.currentTime = 0;
+          }
+        }
+      });
+
+      // metadata loaded -> update track info (duration known)
+      audio.addEventListener('loadedmetadata', function(){
+        updateProgress();
+      });
+
+      // initialize: set first source explicitly so trackInfo is accurate at start
+      setSourceToIndex(currentIndex);
+      updatePlayButton();
+      repeatBtn.textContent = 'Repeat: Off';
+
+      // Clicking the progress bar to seek (helpful but discreet)
+      (function wireProgressSeeking(){
+        var progressContainer = progressBar.parentElement;
+        progressContainer.addEventListener('click', function(e){
+          try{
+            var rect = progressContainer.getBoundingClientRect();
+            var x = e.clientX - rect.left;
+            var pct = x / rect.width;
+            pct = clamp(pct, 0, 1);
+            if(isFinite(audio.duration) && audio.duration > 0){
+              audio.currentTime = pct * audio.duration;
+              updateProgress();
+            }
+          } catch(err){ /* ignore in old-school spirit */ }
+        });
+      })();
+
+      /* ------------------------------
+         Accessibility & safety notes
+         - audio element is hidden visually to keep UI discreet.
+         - Controls are keyboard focusable.
+         - The player intentionally uses minimal visual footprint and reduced opacity.
+         ------------------------------ */
+
+      // Expose a safe console helper for debugging only if local dev
+      window.__avgcalc_debug = {
+        parseInput: parseInput,
+        computeStatistics: computeStatistics
+      };
+
+      // done
+    })();
+  </script>
+</body>
+</html>
+```
